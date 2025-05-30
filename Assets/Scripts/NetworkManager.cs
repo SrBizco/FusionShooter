@@ -6,18 +6,16 @@ using UnityEngine;
 
 public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 {
-    [SerializeField] private NetworkRunner runnerPrefab;
     [SerializeField] private NetworkObject playerPrefab;
     [SerializeField] private NetworkObject gameStatePrefab;
     [SerializeField] private TMP_Text gameTimerText;
 
     public NetworkRunner runner;
     private FpsCameraController cameraController;
+    private NetworkObject gameStateInstance;
 
     public static NetworkManager Instance { get; private set; }
-
     private Dictionary<PlayerRef, Health> deadPlayers = new();
-    private NetworkObject gameStateInstance;
 
     private void Awake()
     {
@@ -29,8 +27,15 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     private void Start()
     {
-        DontDestroyOnLoad(gameObject);
-        StartGame();
+        runner = FindAnyObjectByType<NetworkRunner>();
+        if (runner != null)
+        {
+            runner.AddCallbacks(this);
+        }
+        else
+        {
+            Debug.LogError("❌ No se encontró un NetworkRunner en la escena.");
+        }
     }
 
     private void Update()
@@ -45,42 +50,20 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
             gameTimerText.text = $"{minutes:00}:{seconds:00}";
     }
 
-    private async void StartGame()
-    {
-        runner = Instantiate(runnerPrefab);
-        runner.name = "NetworkRunner";
-        runner.ProvideInput = true;
-        runner.AddCallbacks(this);
-
-        var result = await runner.StartGame(new StartGameArgs
-        {
-            GameMode = GameMode.AutoHostOrClient,
-            SessionName = "SalaTest",
-            PlayerCount = 2,
-            Scene = SceneRef.FromIndex(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex),
-            SceneManager = runner.gameObject.AddComponent<NetworkSceneManagerDefault>()
-        });
-
-        Debug.Log($"StartGame result: {result.Ok}");
-    }
-
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
         if (!runner.IsServer) return;
 
-        // Spawnea GameState si aún no existe
         if (gameStateInstance == null)
         {
             gameStateInstance = runner.Spawn(gameStatePrefab, Vector3.zero, Quaternion.identity);
             Debug.Log("🧩 GameState instanciado por el host");
         }
 
-        // Spawnea el jugador
         Vector3 spawnPos = new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
         var playerInstance = runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
         runner.SetPlayerObject(player, playerInstance);
 
-        // Inicia el timer solo si GameState ya está activo
         if (GameState.Instance != null && !GameState.Instance.GameTimer.IsRunning)
         {
             GameState.Instance.StartGameTimer(60f); // Cambiar a 600f para 10 minutos reales

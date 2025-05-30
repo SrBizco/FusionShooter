@@ -1,11 +1,23 @@
-using Fusion;
+﻿using Fusion;
 using UnityEngine;
 
-/// <summary>
-/// Datos persistentes por jugador en red.
-/// Actualmente s�lo maneja el puntaje, pero puede expandirse con muertes, asistencias, etc.
-/// </summary>
 public class PlayerStats : NetworkBehaviour
 {
     [Networked] public int Score { get; set; }
+    [Networked] public string PlayerName { get; set; }
+
+    public override void Spawned()
+    {
+        if (HasInputAuthority)
+        {
+            RPC_SetPlayerName(LobbyUI.PlayerName);
+        }
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    public void RPC_SetPlayerName(string name)
+    {
+        PlayerName = name;
+        Debug.Log($"📛 Nombre asignado por cliente: {name}");
+    }
 }

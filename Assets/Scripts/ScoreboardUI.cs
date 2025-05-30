@@ -51,7 +51,7 @@ public class ScoreboardUI : MonoBehaviour
             var stats = obj.GetComponent<PlayerStats>();
             if (stats == null) continue;
 
-            players.Add((obj.name, stats.Score));
+            players.Add((stats.PlayerName, stats.Score));
         }
 
         players.Sort((a, b) => b.score.CompareTo(a.score));
