@@ -19,6 +19,7 @@ GameObject:
   - component: {fileID: 7171526260421717201}
   - component: {fileID: 3558856572067382315}
   - component: {fileID: 7851686311647027368}
+  - component: {fileID: 87663926317786448}
   m_Layer: 6
   m_Name: Player
   m_TagString: Untagged
@@ -147,6 +148,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _CurrentHealth: 0
+  _IsAlive: 1
 --- !u!136 &6210288197282228213
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -224,6 +226,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _Score: 0
+--- !u!114 &87663926317786448
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1133367729461164890}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72cb7f189636d8a498ee0fc38c086a57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  healthText: {fileID: 0}
 --- !u!1 &2208554970599452178
 GameObject:
   m_ObjectHideFlags: 0

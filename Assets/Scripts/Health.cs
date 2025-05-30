@@ -129,4 +129,22 @@ public class Health : NetworkBehaviour
         Vector3 respawnPos = new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
         Revive(respawnPos);
     }
+    public void ForceStopGameplay()
+    {
+        if (characterController != null) characterController.enabled = false;
+        if (movement != null) movement.enabled = false;
+        if (shooter != null) shooter.enabled = false;
+
+        foreach (var rend in GetComponentsInChildren<Renderer>())
+            rend.enabled = true;
+
+        if (HasInputAuthority)
+        {
+            if (playerCamera != null) playerCamera.gameObject.SetActive(false);
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+
+        Debug.Log($"⛔ Gameplay desactivado para {gameObject.name}");
+    }
 }

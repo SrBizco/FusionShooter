@@ -8,7 +8,15 @@ public class ScoreboardUI : MonoBehaviour
     [SerializeField] private GameObject scoreboardPanel;
     [SerializeField] private Transform contentParent;
     [SerializeField] private GameObject entryPrefab;
+    public static ScoreboardUI Instance { get; private set; }
 
+    private void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(gameObject);
+    }
     void Start()
     {
         scoreboardPanel.SetActive(false);
@@ -55,5 +63,10 @@ public class ScoreboardUI : MonoBehaviour
             if (text != null)
                 text.text = $"{p.name} — {p.score}";
         }
+    }
+    public void ShowFinalScoreboard()
+    {
+        scoreboardPanel.SetActive(true);
+        RefreshScoreboard();
     }
 }

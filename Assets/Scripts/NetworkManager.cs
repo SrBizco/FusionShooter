@@ -1,12 +1,15 @@
 ﻿using Fusion;
 using Fusion.Sockets;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 {
     [SerializeField] private NetworkRunner runnerPrefab;
     [SerializeField] private NetworkObject playerPrefab;
+    [SerializeField] private NetworkObject gameStatePrefab;
+    [SerializeField] private TMP_Text gameTimerText;
 
     public NetworkRunner runner;
     private FpsCameraController cameraController;
@@ -14,6 +17,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     public static NetworkManager Instance { get; private set; }
 
     private Dictionary<PlayerRef, Health> deadPlayers = new();
+    private NetworkObject gameStateInstance;
 
     private void Awake()
     {
@@ -27,6 +31,18 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     {
         DontDestroyOnLoad(gameObject);
         StartGame();
+    }
+
+    private void Update()
+    {
+        if (GameState.Instance == null || !GameState.Instance.IsGameActive) return;
+
+        int remaining = GameState.Instance.ReplicatedSeconds;
+        int minutes = remaining / 60;
+        int seconds = remaining % 60;
+
+        if (gameTimerText != null)
+            gameTimerText.text = $"{minutes:00}:{seconds:00}";
     }
 
     private async void StartGame()
@@ -46,6 +62,29 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         });
 
         Debug.Log($"StartGame result: {result.Ok}");
+    }
+
+    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+    {
+        if (!runner.IsServer) return;
+
+        // Spawnea GameState si aún no existe
+        if (gameStateInstance == null)
+        {
+            gameStateInstance = runner.Spawn(gameStatePrefab, Vector3.zero, Quaternion.identity);
+            Debug.Log("🧩 GameState instanciado por el host");
+        }
+
+        // Spawnea el jugador
+        Vector3 spawnPos = new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
+        var playerInstance = runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
+        runner.SetPlayerObject(player, playerInstance);
+
+        // Inicia el timer solo si GameState ya está activo
+        if (GameState.Instance != null && !GameState.Instance.GameTimer.IsRunning)
+        {
+            GameState.Instance.StartGameTimer(60f); // Cambiar a 600f para 10 minutos reales
+        }
     }
 
     public void RegisterDeadPlayer(PlayerRef player, Health health)
@@ -71,11 +110,11 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
             health.Revive(respawnPos);
             deadPlayers.Remove(player);
 
-            Debug.Log($"✅ Jugador {player} ha sido respawneado en {respawnPos}");
+            Debug.Log($"✅ Jugador {player} respawneado");
         }
         else
         {
-            Debug.LogWarning($"⚠️ No se encontró el jugador {player} en la lista de muertos");
+            Debug.LogWarning($"⚠️ No se encontró jugador {player} para respawn");
         }
     }
 
@@ -87,26 +126,10 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         Vector2 move = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
         float yaw = cameraController != null ? cameraController.Yaw : 0f;
 
-        input.Set(new NetworkInputData
-        {
-            MoveDirection = move,
-            Yaw = yaw
-        });
+        input.Set(new NetworkInputData { MoveDirection = move, Yaw = yaw });
     }
 
-    public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
-    {
-        if (runner.IsServer)
-        {
-            Vector3 spawnPos = new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
-            NetworkObject playerInstance = runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
-            runner.SetPlayerObject(player, playerInstance);
-
-            Debug.Log($"🎮 Jugador {player} ingresó a la partida y fue spawneado en {spawnPos}");
-        }
-    }
-
-    // Callbacks requeridos (sin modificaciones)
+    // Callbacks requeridos
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnShutdown(NetworkRunner runner, ShutdownReason reason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
