@@ -7,21 +7,17 @@ public class PlayerShooter : NetworkBehaviour
     [SerializeField] private float shootDistance = 100f;
     [SerializeField] private LayerMask hitLayers;
 
+    private Health health;
+
     public override void Spawned()
     {
-        Debug.Log($"🔁 Spawned: {gameObject.name} | InputAuthority: {HasInputAuthority} | StateAuthority: {HasStateAuthority}");
-
-        // Solo desactivo si no soy ni local ni host (para que el host también procese RPCs)
-        if (!HasInputAuthority && !Object.HasStateAuthority)
-        {
-            enabled = false;
-            Debug.Log($"❌ Desactivado {gameObject.name}");
-        }
+        health = GetComponent<Health>();
     }
 
     void Update()
     {
-        if (Input.GetButtonDown("Fire1"))
+        // Solo permitir disparar si tiene autoridad de entrada Y el jugador está vivo (según red)
+        if (HasInputAuthority && Input.GetButtonDown("Fire1") && health != null && health.IsAlive)
         {
             Shoot();
         }
@@ -37,17 +33,8 @@ public class PlayerShooter : NetworkBehaviour
             var networkObject = hit.collider.GetComponentInParent<NetworkObject>();
             if (networkObject != null)
             {
-                Debug.Log($"📤 Enviando RPC con target ID: {networkObject.Id}");
                 RPC_RequestDamage(networkObject.Id, 10, Object.InputAuthority);
             }
-            else
-            {
-                Debug.LogWarning("❌ No se encontró NetworkObject en el objetivo");
-            }
-        }
-        else
-        {
-            Debug.Log("❌ Raycast no impactó nada");
         }
     }
 

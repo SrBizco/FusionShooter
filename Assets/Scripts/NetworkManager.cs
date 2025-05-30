@@ -1,6 +1,5 @@
 ﻿using Fusion;
 using Fusion.Sockets;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,6 +12,8 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     private FpsCameraController cameraController;
 
     public static NetworkManager Instance { get; private set; }
+
+    private Dictionary<PlayerRef, Health> deadPlayers = new();
 
     private void Awake()
     {
@@ -47,6 +48,37 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         Debug.Log($"StartGame result: {result.Ok}");
     }
 
+    public void RegisterDeadPlayer(PlayerRef player, Health health)
+    {
+        if (!deadPlayers.ContainsKey(player))
+        {
+            deadPlayers[player] = health;
+            Debug.Log($"☠️ Jugador {player} registrado como muerto");
+        }
+    }
+
+    public void TryRespawn(PlayerRef player)
+    {
+        if (!runner.IsServer)
+        {
+            Debug.LogWarning("❌ TryRespawn solo debe ser ejecutado por el host");
+            return;
+        }
+
+        if (deadPlayers.TryGetValue(player, out var health))
+        {
+            Vector3 respawnPos = new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
+            health.Revive(respawnPos);
+            deadPlayers.Remove(player);
+
+            Debug.Log($"✅ Jugador {player} ha sido respawneado en {respawnPos}");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ No se encontró el jugador {player} en la lista de muertos");
+        }
+    }
+
     public void OnInput(NetworkRunner runner, NetworkInput input)
     {
         if (cameraController == null)
@@ -55,7 +87,11 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         Vector2 move = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
         float yaw = cameraController != null ? cameraController.Yaw : 0f;
 
-        input.Set(new NetworkInputData { MoveDirection = move, Yaw = yaw });
+        input.Set(new NetworkInputData
+        {
+            MoveDirection = move,
+            Yaw = yaw
+        });
     }
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
@@ -65,26 +101,12 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
             Vector3 spawnPos = new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
             NetworkObject playerInstance = runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
             runner.SetPlayerObject(player, playerInstance);
+
+            Debug.Log($"🎮 Jugador {player} ingresó a la partida y fue spawneado en {spawnPos}");
         }
     }
 
-    public void RespawnPlayer(PlayerRef player, Health existingHealth)
-    {
-        StartCoroutine(RespawnCoroutine(player, existingHealth));
-    }
-
-    private IEnumerator RespawnCoroutine(PlayerRef player, Health healthToRevive)
-    {
-        yield return new WaitForSeconds(5f);
-
-        if (runner != null && healthToRevive != null)
-        {
-            Vector3 respawnPos = new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
-            healthToRevive.Revive(respawnPos);
-        }
-    }
-
-    // Callbacks no usados
+    // Callbacks requeridos (sin modificaciones)
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnShutdown(NetworkRunner runner, ShutdownReason reason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }

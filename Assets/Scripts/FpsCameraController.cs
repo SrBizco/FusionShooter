@@ -9,10 +9,14 @@ public class FpsCameraController : NetworkBehaviour
     [SerializeField] private float maxPitch = 90f;
 
     private float pitch;
-    public float Yaw { get; private set; } // <- Esta propiedad pública es clave
+    public float Yaw { get; private set; }
+
+    private Health health;
 
     public override void Spawned()
     {
+        health = GetComponent<Health>();
+
         if (!HasInputAuthority)
         {
             Camera cam = cameraHolder.GetComponentInChildren<Camera>();
@@ -33,7 +37,7 @@ public class FpsCameraController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasInputAuthority)
+        if (!HasInputAuthority || health == null || !health.IsAlive)
             return;
 
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;

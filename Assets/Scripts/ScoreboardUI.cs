@@ -9,8 +9,6 @@ public class ScoreboardUI : MonoBehaviour
     [SerializeField] private Transform contentParent;
     [SerializeField] private GameObject entryPrefab;
 
-    private Dictionary<PlayerRef, GameObject> playerEntries = new();
-
     void Start()
     {
         scoreboardPanel.SetActive(false);
@@ -19,46 +17,43 @@ public class ScoreboardUI : MonoBehaviour
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.Tab))
-            UpdateScoreboard(true);
+        {
+            scoreboardPanel.SetActive(true);
+            RefreshScoreboard();
+        }
         else if (Input.GetKeyUp(KeyCode.Tab))
-            UpdateScoreboard(false);
+        {
+            scoreboardPanel.SetActive(false);
+        }
     }
 
-    void UpdateScoreboard(bool show)
+    private void RefreshScoreboard()
     {
-        scoreboardPanel.SetActive(show);
-        if (!show) return;
-
-        // Limpiar entries anteriores
         foreach (Transform child in contentParent)
             Destroy(child.gameObject);
 
+        var runner = NetworkManager.Instance.runner;
         List<(string name, int score)> players = new();
 
-        var runner = NetworkManager.Instance.runner;
         foreach (var player in runner.ActivePlayers)
         {
-            var obj = runner.GetPlayerObject(player); // ✅ CORREGIDO
-
+            var obj = runner.GetPlayerObject(player);
             if (obj == null) continue;
 
             var stats = obj.GetComponent<PlayerStats>();
             if (stats == null) continue;
 
-            string playerName = obj.name;
-            int score = stats.Score;
-
-            players.Add((playerName, score));
+            players.Add((obj.name, stats.Score));
         }
 
-        // Ordenar de mayor a menor
         players.Sort((a, b) => b.score.CompareTo(a.score));
 
-        // Crear nuevas filas
         foreach (var p in players)
         {
             var entry = Instantiate(entryPrefab, contentParent);
-            entry.GetComponentInChildren<TMP_Text>().text = $"{p.name} — {p.score}";
+            var text = entry.GetComponentInChildren<TMP_Text>();
+            if (text != null)
+                text.text = $"{p.name} — {p.score}";
         }
     }
 }

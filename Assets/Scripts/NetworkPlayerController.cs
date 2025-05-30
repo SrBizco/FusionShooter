@@ -7,6 +7,7 @@ using UnityEngine;
 public class NetworkPlayerController : NetworkBehaviour
 {
     private NetworkCharacterController cc;
+    private Health health;
 
     [SerializeField] private Transform cameraHolder;
 
@@ -16,6 +17,7 @@ public class NetworkPlayerController : NetworkBehaviour
     public override void Spawned()
     {
         cc = GetComponent<NetworkCharacterController>();
+        health = GetComponent<Health>();
 
         if (HasInputAuthority && Camera.main != null)
         {
@@ -31,6 +33,9 @@ public class NetworkPlayerController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
+        if (health == null || !health.IsAlive)
+            return;
+
         if (GetInput(out NetworkInputData input))
         {
             NetworkYaw = input.Yaw;
