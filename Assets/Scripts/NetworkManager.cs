@@ -1,5 +1,6 @@
 ﻿using Fusion;
 using Fusion.Sockets;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -13,6 +14,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     public NetworkRunner runner;
     private FpsCameraController cameraController;
     private NetworkObject gameStateInstance;
+    private bool gameplayInitializationQueued;
 
     public static NetworkManager Instance { get; private set; }
     private Dictionary<PlayerRef, Health> deadPlayers = new();
@@ -31,6 +33,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         if (runner != null)
         {
             runner.AddCallbacks(this);
+            QueueGameplayInitialization();
         }
         else
         {
@@ -52,21 +55,71 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        if (!runner.IsServer) return;
+        QueueGameplayInitialization();
+    }
 
+    private void TryInitializeGameplayForExistingPlayers()
+    {
+        if (runner == null || !runner.IsServer)
+            return;
+
+        EnsureGameState();
+
+        foreach (var player in runner.ActivePlayers)
+            SpawnPlayerIfNeeded(player);
+
+        StartTimerIfNeeded();
+    }
+
+    private void QueueGameplayInitialization()
+    {
+        if (gameplayInitializationQueued)
+            return;
+
+        gameplayInitializationQueued = true;
+        StartCoroutine(InitializeGameplayWhenRunnerReady());
+    }
+
+    private IEnumerator InitializeGameplayWhenRunnerReady()
+    {
+        yield return null;
+
+        yield return new WaitUntil(() =>
+            runner != null &&
+            runner.IsRunning &&
+            !runner.IsSceneManagerBusy);
+
+        yield return null;
+
+        gameplayInitializationQueued = false;
+        TryInitializeGameplayForExistingPlayers();
+    }
+
+    private void EnsureGameState()
+    {
         if (gameStateInstance == null)
         {
             gameStateInstance = runner.Spawn(gameStatePrefab, Vector3.zero, Quaternion.identity);
             Debug.Log("🧩 GameState instanciado por el host");
         }
+    }
+
+    private void SpawnPlayerIfNeeded(PlayerRef player)
+    {
+        if (runner.GetPlayerObject(player) != null)
+            return;
 
         Vector3 spawnPos = new Vector3(Random.Range(-3f, 3f), 1f, Random.Range(-3f, 3f));
         var playerInstance = runner.Spawn(playerPrefab, spawnPos, Quaternion.identity, player);
         runner.SetPlayerObject(player, playerInstance);
+    }
 
-        if (GameState.Instance != null && !GameState.Instance.GameTimer.IsRunning)
+    private void StartTimerIfNeeded()
+    {
+        var gameState = gameStateInstance != null ? gameStateInstance.GetComponent<GameState>() : GameState.Instance;
+        if (gameState != null && !gameState.GameTimer.IsRunning)
         {
-            GameState.Instance.StartGameTimer(60f); // Cambiar a 600f para 10 minutos reales
+            gameState.StartGameTimer(60f); // Cambiar a 600f para 10 minutos reales
         }
     }
 
@@ -103,13 +156,27 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnInput(NetworkRunner runner, NetworkInput input)
     {
-        if (cameraController == null)
-            cameraController = FindAnyObjectByType<FpsCameraController>();
+        cameraController = ResolveLocalCameraController(runner);
 
         Vector2 move = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
         float yaw = cameraController != null ? cameraController.Yaw : 0f;
 
         input.Set(new NetworkInputData { MoveDirection = move, Yaw = yaw });
+    }
+
+    private FpsCameraController ResolveLocalCameraController(NetworkRunner runner)
+    {
+        if (cameraController != null && cameraController.HasInputAuthority)
+            return cameraController;
+
+        if (runner != null)
+        {
+            var playerObject = runner.GetPlayerObject(runner.LocalPlayer);
+            if (playerObject != null && playerObject.TryGetComponent(out FpsCameraController localCameraController))
+                return localCameraController;
+        }
+
+        return null;
     }
 
     // Callbacks requeridos
@@ -124,7 +191,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, System.ArraySegment<byte> data) { }
-    public void OnSceneLoadDone(NetworkRunner runner) { }
+    public void OnSceneLoadDone(NetworkRunner runner) { QueueGameplayInitialization(); }
     public void OnSceneLoadStart(NetworkRunner runner) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
