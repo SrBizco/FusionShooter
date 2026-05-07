@@ -1915,10 +1915,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45fbe3b9ef0e31f44b8383fca54d39b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  runnerPrefab: {fileID: 2631922501212407434, guid: cc67a543b01fc2e4b85d41346cab7768, type: 3}
   playerPrefab: {fileID: 5945783599399694579, guid: e8f671548b06f274e8bf8c92a86cecbb, type: 3}
   gameStatePrefab: {fileID: 8647529270474368194, guid: 3e50bafeababfde49a10554e031a5ca8, type: 3}
   gameTimerText: {fileID: 113544703}
+  matchDurationSeconds: 600
   runner: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

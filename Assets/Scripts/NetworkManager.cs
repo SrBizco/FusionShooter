@@ -10,6 +10,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private NetworkObject playerPrefab;
     [SerializeField] private NetworkObject gameStatePrefab;
     [SerializeField] private TMP_Text gameTimerText;
+    [SerializeField, Min(1f)] private float matchDurationSeconds = 60f;
 
     public NetworkRunner runner;
     private FpsCameraController cameraController;
@@ -119,7 +120,7 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
         var gameState = gameStateInstance != null ? gameStateInstance.GetComponent<GameState>() : GameState.Instance;
         if (gameState != null && !gameState.GameTimer.IsRunning)
         {
-            gameState.StartGameTimer(60f); // Cambiar a 600f para 10 minutos reales
+            gameState.StartGameTimer(matchDurationSeconds);
         }
     }
 

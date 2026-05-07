@@ -13,14 +13,20 @@ public class Health : NetworkBehaviour
     private NetworkPlayerController movement;
     private PlayerShooter shooter;
     private Camera playerCamera;
+    private PlayerFeedback playerFeedback;
+    private PlayerAnimationController animationController;
 
     private bool visualsApplied = false;
+    private bool aliveStateInitialized;
+    private bool lastAliveState;
 
     public override void Spawned()
     {
         characterController = GetComponent<CharacterController>();
         movement = GetComponent<NetworkPlayerController>();
         shooter = GetComponent<PlayerShooter>();
+        playerFeedback = GetComponent<PlayerFeedback>();
+        animationController = GetComponent<PlayerAnimationController>();
         playerCamera = GetComponentInChildren<Camera>(true);
 
         if (Object.HasStateAuthority)
@@ -33,6 +39,27 @@ public class Health : NetworkBehaviour
 
     public override void Render()
     {
+        if (!aliveStateInitialized)
+        {
+            aliveStateInitialized = true;
+            lastAliveState = IsAlive;
+        }
+        else if (lastAliveState != IsAlive)
+        {
+            if (IsAlive)
+            {
+                playerFeedback?.PlayRespawn();
+                animationController?.PlayRespawn();
+            }
+            else
+            {
+                playerFeedback?.PlayDeath();
+                animationController?.PlayDeath();
+            }
+
+            lastAliveState = IsAlive;
+        }
+
         if (IsAlive && !visualsApplied)
         {
             ApplyVisualState(true);
@@ -51,11 +78,19 @@ public class Health : NetworkBehaviour
 
         CurrentHealth -= amount;
         Debug.Log($"💥 {gameObject.name} recibió {amount} de daño. Vida restante: {CurrentHealth}");
+        RPC_PlayDamageFeedback();
 
         if (CurrentHealth <= 0)
         {
             Kill(attacker);
         }
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_PlayDamageFeedback()
+    {
+        playerFeedback?.PlayDamage();
+        animationController?.PlayHit();
     }
 
     private void Kill(PlayerRef killer)
