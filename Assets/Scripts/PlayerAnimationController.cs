@@ -16,6 +16,8 @@ public class PlayerAnimationController : NetworkBehaviour
     private static readonly int DieHash = Animator.StringToHash("Die");
     private static readonly int RespawnHash = Animator.StringToHash("Respawn");
 
+    public RuntimeAnimatorController CurrentController => animator != null ? animator.runtimeAnimatorController : null;
+
     private void Awake()
     {
         if (animator == null)
@@ -26,6 +28,18 @@ public class PlayerAnimationController : NetworkBehaviour
 
         if (health == null)
             health = GetComponent<Health>();
+    }
+
+    public void SetAnimator(Animator newAnimator, RuntimeAnimatorController controller = null)
+    {
+        if (newAnimator == null)
+            return;
+
+        RuntimeAnimatorController previousController = controller != null ? controller : CurrentController;
+        animator = newAnimator;
+
+        if (animator.runtimeAnimatorController == null && previousController != null)
+            animator.runtimeAnimatorController = previousController;
     }
 
     public override void Render()
