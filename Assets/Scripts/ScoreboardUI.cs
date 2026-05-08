@@ -1,14 +1,21 @@
-﻿using Fusion;
+using Fusion;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class ScoreboardUI : MonoBehaviour
 {
     [SerializeField] private GameObject scoreboardPanel;
     [SerializeField] private Transform contentParent;
     [SerializeField] private GameObject entryPrefab;
+    [SerializeField] private Button returnToMenuButton;
+    [SerializeField] private int mainMenuSceneBuildIndex = 0;
+
     public static ScoreboardUI Instance { get; private set; }
+
+    private bool matchEnded;
 
     private void Awake()
     {
@@ -17,13 +24,23 @@ public class ScoreboardUI : MonoBehaviour
         else
             Destroy(gameObject);
     }
+
     void Start()
     {
         scoreboardPanel.SetActive(false);
+
+        if (returnToMenuButton != null)
+        {
+            returnToMenuButton.gameObject.SetActive(false);
+            returnToMenuButton.onClick.AddListener(ReturnToMenu);
+        }
     }
 
     void Update()
     {
+        if (matchEnded)
+            return;
+
         if (Input.GetKeyDown(KeyCode.Tab))
         {
             scoreboardPanel.SetActive(true);
@@ -61,12 +78,37 @@ public class ScoreboardUI : MonoBehaviour
             var entry = Instantiate(entryPrefab, contentParent);
             var text = entry.GetComponentInChildren<TMP_Text>();
             if (text != null)
-                text.text = $"{p.name} — {p.score}";
+                text.text = $"{p.name} - {p.score}";
         }
     }
+
     public void ShowFinalScoreboard()
     {
+        matchEnded = true;
         scoreboardPanel.SetActive(true);
+
+        if (returnToMenuButton != null)
+        {
+            returnToMenuButton.gameObject.SetActive(true);
+            returnToMenuButton.interactable = true;
+        }
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
         RefreshScoreboard();
+    }
+
+    private async void ReturnToMenu()
+    {
+        if (returnToMenuButton != null)
+            returnToMenuButton.interactable = false;
+
+        var runner = NetworkManager.Instance != null ? NetworkManager.Instance.runner : null;
+        if (runner != null && runner.IsRunning)
+            await runner.Shutdown();
+
+        MatchSettings.SetMode(MatchMode.FreeForAll);
+        MatchSettings.ClearTeams();
+        SceneManager.LoadScene(mainMenuSceneBuildIndex);
     }
 }

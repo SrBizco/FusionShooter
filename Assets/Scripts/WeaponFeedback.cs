@@ -21,6 +21,10 @@ public class WeaponFeedback : MonoBehaviour
     [SerializeField] private AudioClip shootSound;
     [SerializeField] private float shootVolume = 1f;
 
+    [Header("Reload")]
+    [SerializeField] private AudioClip reloadSound;
+    [SerializeField] private float reloadVolume = 1f;
+
     [Header("Impact")]
     [SerializeField] private GameObject defaultImpactPrefab;
     [SerializeField] private AudioClip defaultImpactSound;
@@ -58,6 +62,14 @@ public class WeaponFeedback : MonoBehaviour
             audioPlayer.PlayOneShot(shootSound, shootVolume);
         else if (muzzlePoint != null)
             AudioFeedbackPlayer.PlayClipAtPoint(shootSound, muzzlePoint.position, shootVolume);
+    }
+
+    public void PlayReload()
+    {
+        if (audioPlayer != null)
+            audioPlayer.PlayOneShot(reloadSound, reloadVolume);
+        else if (muzzlePoint != null)
+            AudioFeedbackPlayer.PlayClipAtPoint(reloadSound, muzzlePoint.position, reloadVolume);
     }
 
     public void PlayImpact(Vector3 position, Vector3 normal, SurfaceType surfaceType)

@@ -20,6 +20,7 @@ public class LobbyUI : MonoBehaviour, INetworkRunnerCallbacks
     [SerializeField] private Button quitButton;
 
     [Header("Create Match")]
+    [SerializeField] private TMP_Dropdown matchModeDropdown;
     [SerializeField] private TMP_InputField roomNameInput;
     [SerializeField] private TMP_InputField maxPlayersInput;
     [SerializeField] private Button hostButton;
@@ -53,6 +54,7 @@ public class LobbyUI : MonoBehaviour, INetworkRunnerCallbacks
 
     public static LobbyUI Instance { get; private set; }
     public static string PlayerName { get; private set; }
+    public static MatchMode SelectedMatchMode { get; private set; } = MatchMode.FreeForAll;
 
     private NetworkRunner runner;
     private RoomLobbyState roomLobbyState;
@@ -83,6 +85,7 @@ public class LobbyUI : MonoBehaviour, INetworkRunnerCallbacks
         WireButton(readyButton, ToggleReady);
         WireButton(startMatchButton, StartMatch);
         WireButton(leaveRoomButton, LeaveRoom);
+        ConfigureMatchModeDropdown();
 
         ShowHomePanel();
         SetStatusMessage("Ready.");
@@ -271,6 +274,7 @@ public class LobbyUI : MonoBehaviour, INetworkRunnerCallbacks
 
         var stateObject = runner.Spawn(roomLobbyStatePrefab, Vector3.zero, Quaternion.identity);
         roomLobbyState = stateObject.GetComponent<RoomLobbyState>();
+        roomLobbyState.ConfigureMatchMode(SelectedMatchMode);
     }
 
     private void SelectSession(SessionInfo session)
@@ -399,6 +403,7 @@ public class LobbyUI : MonoBehaviour, INetworkRunnerCallbacks
         layout.spacing = 24f;
 
         CreateRowText(row.transform, player.IsHost ? $"{player.Name} (Host)" : player.Name, TextAlignmentOptions.Left, Color.white);
+        CreateRowText(row.transform, GetTeamLabel(player.Team), TextAlignmentOptions.Center, GetTeamColor(player.Team));
         CreateRowText(row.transform, player.IsReady ? "Ready" : "Not Ready", TextAlignmentOptions.Right, player.IsReady ? Color.green : Color.red);
 
         return row;
@@ -533,6 +538,39 @@ public class LobbyUI : MonoBehaviour, INetworkRunnerCallbacks
         return roomNameInput != null && !string.IsNullOrWhiteSpace(roomNameInput.text)
             ? roomNameInput.text.Trim()
             : $"Sala-{Random.Range(1000, 9999)}";
+    }
+
+    private void ConfigureMatchModeDropdown()
+    {
+        if (matchModeDropdown == null)
+            return;
+
+        matchModeDropdown.ClearOptions();
+        matchModeDropdown.AddOptions(new List<string> { "Free For All", "Team Deathmatch" });
+        matchModeDropdown.value = SelectedMatchMode == MatchMode.TeamDeathmatch ? 1 : 0;
+        matchModeDropdown.onValueChanged.AddListener(SetSelectedMatchMode);
+        SetSelectedMatchMode(matchModeDropdown.value);
+    }
+
+    private void SetSelectedMatchMode(int value)
+    {
+        SelectedMatchMode = value == 1 ? MatchMode.TeamDeathmatch : MatchMode.FreeForAll;
+        MatchSettings.SetMode(SelectedMatchMode);
+    }
+
+    private string GetTeamLabel(PlayerTeam team)
+    {
+        return SelectedMatchMode == MatchMode.TeamDeathmatch || team != PlayerTeam.None ? team.ToString() : "-";
+    }
+
+    private Color GetTeamColor(PlayerTeam team)
+    {
+        return team switch
+        {
+            PlayerTeam.Blue => new Color(0.2f, 0.55f, 1f),
+            PlayerTeam.Red => new Color(1f, 0.25f, 0.25f),
+            _ => Color.white
+        };
     }
 
     private int GetMaxPlayers()

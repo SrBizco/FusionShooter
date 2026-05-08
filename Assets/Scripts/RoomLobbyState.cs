@@ -11,6 +11,7 @@ public class RoomLobbyState : NetworkBehaviour
         public string Name;
         public bool IsReady;
         public bool IsHost;
+        public PlayerTeam Team;
     }
 
     public static RoomLobbyState Instance { get; private set; }
@@ -19,9 +20,11 @@ public class RoomLobbyState : NetworkBehaviour
 
     private readonly List<PlayerLobbyData> players = new();
     private readonly List<PlayerLobbyData> snapshotPlayers = new();
+    private MatchMode matchMode = MatchMode.FreeForAll;
 
     public bool LocalPlayerReady { get; private set; }
     public bool CanHostStart => HasStateAuthority && players.Count > 0 && AllPlayersReady();
+    public MatchMode CurrentMatchMode => matchMode;
 
     public override void Spawned()
     {
@@ -35,6 +38,17 @@ public class RoomLobbyState : NetworkBehaviour
     {
         if (Instance == this)
             Instance = null;
+    }
+
+    public void ConfigureMatchMode(MatchMode mode)
+    {
+        if (!HasStateAuthority)
+            return;
+
+        matchMode = mode;
+        MatchSettings.SetMode(mode);
+        ReassignTeamsForMode();
+        BroadcastPlayers();
     }
 
     public void RegisterLocalPlayer(string playerName)
@@ -61,6 +75,8 @@ public class RoomLobbyState : NetworkBehaviour
 
         Runner.SessionInfo.IsOpen = false;
         Runner.SessionInfo.IsVisible = false;
+        MatchSettings.SetMode(matchMode);
+        CacheTeamsForGameplay();
         Runner.LoadScene(SceneRef.FromIndex(gameplaySceneBuildIndex), LoadSceneMode.Single);
     }
 
@@ -91,7 +107,8 @@ public class RoomLobbyState : NetworkBehaviour
             Player = player,
             Name = string.IsNullOrWhiteSpace(playerName) ? "SinNombre" : playerName,
             IsReady = false,
-            IsHost = isHost
+            IsHost = isHost,
+            Team = AssignTeamForNewPlayer()
         };
 
         if (index >= 0)
@@ -99,6 +116,7 @@ public class RoomLobbyState : NetworkBehaviour
         else
             players.Add(data);
 
+        MatchSettings.SetPlayerTeam(player, data.Team);
         BroadcastPlayers();
     }
 
@@ -144,7 +162,7 @@ public class RoomLobbyState : NetworkBehaviour
                     continue;
 
                 string[] columns = row.Split('|');
-                if (columns.Length < 3)
+                if (columns.Length < 5)
                     continue;
 
                 snapshotPlayers.Add(new PlayerLobbyData
@@ -152,7 +170,8 @@ public class RoomLobbyState : NetworkBehaviour
                     Player = PlayerRef.None,
                     Name = columns[0],
                     IsReady = columns[1] == "1",
-                    IsHost = columns[2] == "1"
+                    IsHost = columns[2] == "1",
+                    Team = ParseTeam(columns[3])
                 });
             }
         }
@@ -169,7 +188,7 @@ public class RoomLobbyState : NetworkBehaviour
             string safeName = Sanitize(player.Name);
             string ready = player.IsReady ? "1" : "0";
             string host = player.IsHost ? "1" : "0";
-            rows.Add($"{safeName}|{ready}|{host}");
+            rows.Add($"{safeName}|{ready}|{host}|{player.Team}|{matchMode}");
         }
 
         return string.Join("\n", rows);
@@ -195,5 +214,72 @@ public class RoomLobbyState : NetworkBehaviour
         }
 
         return true;
+    }
+
+    private void CacheTeamsForGameplay()
+    {
+        MatchSettings.ClearTeams();
+
+        foreach (var player in players)
+            MatchSettings.SetPlayerTeam(player.Player, player.Team);
+    }
+
+    private PlayerTeam AssignTeamForNewPlayer()
+    {
+        if (matchMode == MatchMode.FreeForAll)
+            return PlayerTeam.None;
+
+        int blueCount = 0;
+        int redCount = 0;
+
+        foreach (var player in players)
+        {
+            if (player.Team == PlayerTeam.Blue)
+                blueCount++;
+            else if (player.Team == PlayerTeam.Red)
+                redCount++;
+        }
+
+        return blueCount <= redCount ? PlayerTeam.Blue : PlayerTeam.Red;
+    }
+
+    private void ReassignTeamsForMode()
+    {
+        MatchSettings.ClearTeams();
+
+        if (matchMode == MatchMode.FreeForAll)
+        {
+            for (int i = 0; i < players.Count; i++)
+            {
+                var data = players[i];
+                data.Team = PlayerTeam.None;
+                players[i] = data;
+                MatchSettings.SetPlayerTeam(data.Player, data.Team);
+            }
+
+            return;
+        }
+
+        int blueCount = 0;
+        int redCount = 0;
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            var data = players[i];
+            data.Team = blueCount <= redCount ? PlayerTeam.Blue : PlayerTeam.Red;
+
+            if (data.Team == PlayerTeam.Blue)
+                blueCount++;
+            else
+                redCount++;
+
+            players[i] = data;
+            MatchSettings.SetPlayerTeam(data.Player, data.Team);
+        }
+    }
+
+    private PlayerTeam ParseTeam(string value)
+    {
+        return System.Enum.TryParse(value, out PlayerTeam team) ? team : PlayerTeam.None;
     }
 }

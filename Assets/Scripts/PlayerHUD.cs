@@ -3,24 +3,60 @@ using UnityEngine;
 
 public class PlayerHUD : MonoBehaviour
 {
-    private TMP_Text healthText;
+    [SerializeField] private TMP_Text healthText;
+    [SerializeField] private TMP_Text ammoText;
+
     private Health health;
+    private PlayerShooter shooter;
 
-    void Start()
+    void Awake()
     {
-        // Buscar el texto por tag en la escena
-        var healthObj = GameObject.FindWithTag("HealthText");
-        if (healthObj != null)
-            healthText = healthObj.GetComponent<TMP_Text>();
-
-        health = GetComponentInParent<Health>(); // Asume que está en el hijo de un player
+        health = GetComponentInParent<Health>();
+        shooter = GetComponentInParent<PlayerShooter>();
     }
 
     void Update()
     {
-        if (health == null || healthText == null) return;
-        if (!health.HasInputAuthority) return;
+        if (health == null || !health.HasInputAuthority)
+            return;
 
-        healthText.text = $"Health: {health.CurrentHealth}%";
+        ResolveSceneTexts();
+
+        UpdateHealthText();
+        UpdateAmmoText();
+    }
+
+    private void ResolveSceneTexts()
+    {
+        if (PlayerHUDView.Instance == null)
+            return;
+
+        if (healthText == null)
+            healthText = PlayerHUDView.Instance.HealthText;
+
+        if (ammoText == null)
+            ammoText = PlayerHUDView.Instance.AmmoText;
+    }
+
+    private void UpdateHealthText()
+    {
+        if (healthText != null)
+            healthText.text = $"Health: {health.CurrentHealth}%";
+    }
+
+    private void UpdateAmmoText()
+    {
+        if (ammoText == null)
+            return;
+
+        if (shooter == null)
+        {
+            ammoText.text = "Ammo: --";
+            return;
+        }
+
+        ammoText.text = shooter.IsReloading
+            ? "Reloading..."
+            : $"Ammo: {shooter.CurrentAmmo}/{shooter.MagazineSize}";
     }
 }

@@ -8,8 +8,15 @@ public class PlayerShooter : NetworkBehaviour
     [SerializeField] private LayerMask hitLayers;
     [SerializeField] private WeaponFeedback weaponFeedback;
     [SerializeField] private PlayerAnimationController animationController;
+    [SerializeField] private int magazineSize = 7;
+    [SerializeField] private float reloadDuration = 2f;
 
     private Health health;
+
+    [Networked] public int CurrentAmmo { get; private set; }
+    [Networked] public bool IsReloading { get; private set; }
+    [Networked] private TickTimer ReloadTimer { get; set; }
+    public int MagazineSize => magazineSize;
 
     public override void Spawned()
     {
@@ -21,10 +28,19 @@ public class PlayerShooter : NetworkBehaviour
 
         if (animationController == null)
             animationController = GetComponent<PlayerAnimationController>();
+
+        if (Object.HasStateAuthority)
+            CurrentAmmo = magazineSize;
     }
 
     void Update()
     {
+        if (HasInputAuthority && Input.GetKeyDown(KeyCode.R) && CanRequestReload())
+        {
+            weaponFeedback?.PlayReload();
+            RPC_RequestReload();
+        }
+
         // Solo permitir disparar si tiene autoridad de entrada Y el jugador está vivo (según red)
         if (HasInputAuthority && Input.GetButtonDown("Fire1") && health != null && health.IsAlive)
         {
@@ -32,8 +48,17 @@ public class PlayerShooter : NetworkBehaviour
         }
     }
 
+    public override void FixedUpdateNetwork()
+    {
+        if (Object.HasStateAuthority && IsReloading && ReloadTimer.Expired(Runner))
+            FinishReload();
+    }
+
     private void Shoot()
     {
+        if (CurrentAmmo <= 0 || IsReloading)
+            return;
+
         ResolveFpsCamera();
         if (fpsCamera == null)
         {
@@ -43,6 +68,7 @@ public class PlayerShooter : NetworkBehaviour
 
         weaponFeedback?.PlayShot();
         animationController?.PlayFire();
+        RPC_ConsumeAmmo();
 
         Ray ray = new Ray(fpsCamera.transform.position, fpsCamera.transform.forward);
         Vector3 impactPoint = ray.origin + ray.direction * shootDistance;
@@ -78,6 +104,37 @@ public class PlayerShooter : NetworkBehaviour
         RPC_PlayShotFeedback(impactPoint, impactNormal, hasImpact, (int)surfaceType);
     }
 
+    private bool CanRequestReload()
+    {
+        return !IsReloading && CurrentAmmo < magazineSize;
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void RPC_ConsumeAmmo()
+    {
+        if (IsReloading || CurrentAmmo <= 0)
+            return;
+
+        CurrentAmmo--;
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void RPC_RequestReload()
+    {
+        if (IsReloading || CurrentAmmo >= magazineSize)
+            return;
+
+        IsReloading = true;
+        ReloadTimer = TickTimer.CreateFromSeconds(Runner, reloadDuration);
+        RPC_PlayReloadFeedback();
+    }
+
+    private void FinishReload()
+    {
+        CurrentAmmo = magazineSize;
+        IsReloading = false;
+    }
+
     [Rpc(RpcSources.InputAuthority, RpcTargets.All)]
     private void RPC_PlayShotFeedback(Vector3 impactPoint, Vector3 impactNormal, bool hasImpact, int surfaceType)
     {
@@ -89,6 +146,15 @@ public class PlayerShooter : NetworkBehaviour
 
         if (hasImpact)
             weaponFeedback?.PlayImpact(impactPoint, impactNormal, (SurfaceType)surfaceType);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_PlayReloadFeedback()
+    {
+        if (HasInputAuthority)
+            return;
+
+        weaponFeedback?.PlayReload();
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]

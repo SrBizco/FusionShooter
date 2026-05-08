@@ -76,6 +76,12 @@ public class Health : NetworkBehaviour
     {
         if (!Object.HasStateAuthority || !IsAlive) return;
 
+        if (IsFriendlyFire(attacker))
+        {
+            Debug.Log("Friendly fire blocked.");
+            return;
+        }
+
         CurrentHealth -= amount;
         Debug.Log($"💥 {gameObject.name} recibió {amount} de daño. Vida restante: {CurrentHealth}");
         RPC_PlayDamageFeedback();
@@ -84,6 +90,23 @@ public class Health : NetworkBehaviour
         {
             Kill(attacker);
         }
+    }
+
+    private bool IsFriendlyFire(PlayerRef attacker)
+    {
+        if (attacker == Object.InputAuthority)
+            return false;
+
+        var attackerObject = Runner.GetPlayerObject(attacker);
+        if (attackerObject == null)
+            return false;
+
+        var attackerStats = attackerObject.GetComponent<PlayerStats>();
+        var targetStats = GetComponent<PlayerStats>();
+        if (attackerStats == null || targetStats == null)
+            return false;
+
+        return MatchSettings.FriendlyFireBlocked(attackerStats.Team, targetStats.Team);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
