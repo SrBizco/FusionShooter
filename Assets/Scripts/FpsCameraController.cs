@@ -33,7 +33,7 @@ public class FpsCameraController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        if (!HasInputAuthority || health == null || !health.IsAlive)
+        if (!HasInputAuthority || PauseMenuUI.IsPaused || health == null || !health.IsAlive)
             return;
 
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
@@ -49,7 +49,7 @@ public class FpsCameraController : NetworkBehaviour
 
     private void LateUpdate()
     {
-        if (!HasInputAuthority || health == null || !health.IsAlive)
+        if (!HasInputAuthority || PauseMenuUI.IsPaused || health == null || !health.IsAlive)
             return;
 
         ApplyPitch();

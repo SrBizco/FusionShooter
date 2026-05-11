@@ -35,6 +35,9 @@ public class PlayerShooter : NetworkBehaviour
 
     void Update()
     {
+        if (PauseMenuUI.IsPaused)
+            return;
+
         if (HasInputAuthority && Input.GetKeyDown(KeyCode.R) && CanRequestReload())
         {
             weaponFeedback?.PlayReload();
@@ -84,8 +87,7 @@ public class PlayerShooter : NetworkBehaviour
             impactPoint = hit.point;
             impactNormal = hit.normal;
 
-            if (hit.collider.GetComponentInParent<SurfaceFeedback>() is SurfaceFeedback surfaceFeedback)
-                surfaceType = surfaceFeedback.SurfaceType;
+            surfaceType = ResolveSurfaceType(hit.collider);
 
             var networkObject = hit.collider.GetComponentInParent<NetworkObject>();
             if (networkObject != null)
@@ -107,6 +109,21 @@ public class PlayerShooter : NetworkBehaviour
     private bool CanRequestReload()
     {
         return !IsReloading && CurrentAmmo < magazineSize;
+    }
+
+    private SurfaceType ResolveSurfaceType(Collider hitCollider)
+    {
+        if (hitCollider == null)
+            return SurfaceType.Default;
+
+        if (hitCollider.GetComponentInParent<SurfaceFeedback>() is SurfaceFeedback surfaceFeedback)
+            return surfaceFeedback.SurfaceType;
+
+        string layerName = LayerMask.LayerToName(hitCollider.gameObject.layer);
+        if (System.Enum.TryParse(layerName, true, out SurfaceType layerSurfaceType))
+            return layerSurfaceType;
+
+        return SurfaceType.Default;
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]

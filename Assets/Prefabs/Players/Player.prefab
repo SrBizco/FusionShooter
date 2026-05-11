@@ -229,9 +229,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fpsCamera: {fileID: 4744658519972048798}
   shootDistance: 100
-  hitLayers:
-    serializedVersion: 2
-    m_Bits: 64
+    hitLayers:
+      serializedVersion: 2
+      m_Bits: 192
   weaponFeedback: {fileID: 7795045091156934257}
   animationController: {fileID: 0}
   magazineSize: 7
@@ -366,9 +366,12 @@ MonoBehaviour:
   shootVolume: 1
   reloadSound: {fileID: 8300000, guid: fa62328cd6f4c0346a6a50d44c93739c, type: 3}
   reloadVolume: 1
-  defaultImpactPrefab: {fileID: 163066, guid: 53777b8572d1e7242bc90044f62667ce, type: 3}
+  defaultImpactPrefab: {fileID: 0}
   defaultImpactSound: {fileID: 0}
-  surfaceImpacts: []
+  surfaceImpacts:
+  - surfaceType: 2
+    impactPrefab: {fileID: 166404, guid: e85ee373be8e5c64aa65f0a1f4acb77a, type: 3}
+    impactSound: {fileID: 0}
   impactVolume: 1
   impactLifetime: 3
   hitMarker: {fileID: 0}

@@ -12,6 +12,7 @@ public class RoomLobbyState : NetworkBehaviour
         public bool IsReady;
         public bool IsHost;
         public PlayerTeam Team;
+        public int PlayerId;
     }
 
     public static RoomLobbyState Instance { get; private set; }
@@ -80,6 +81,14 @@ public class RoomLobbyState : NetworkBehaviour
         Runner.LoadScene(SceneRef.FromIndex(gameplaySceneBuildIndex), LoadSceneMode.Single);
     }
 
+    public void NotifyHostLeavingLobby()
+    {
+        if (!HasStateAuthority)
+            return;
+
+        RPC_ReturnClientsToMenu("Connection lost with host.");
+    }
+
     public void HandlePlayerLeft(PlayerRef player)
     {
         if (!HasStateAuthority)
@@ -108,7 +117,8 @@ public class RoomLobbyState : NetworkBehaviour
             Name = string.IsNullOrWhiteSpace(playerName) ? "SinNombre" : playerName,
             IsReady = false,
             IsHost = isHost,
-            Team = AssignTeamForNewPlayer()
+            Team = AssignTeamForNewPlayer(),
+            PlayerId = player.PlayerId
         };
 
         if (index >= 0)
@@ -143,6 +153,15 @@ public class RoomLobbyState : NetworkBehaviour
             LobbyUI.Instance.SetStatusMessage(message);
     }
 
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ReturnClientsToMenu(string message)
+    {
+        if (HasStateAuthority)
+            return;
+
+        LobbyUI.ReturnToMenuFromHost(message);
+    }
+
     private void BroadcastPlayers()
     {
         RPC_ReceivePlayerSnapshot(BuildPlayerSnapshot());
@@ -165,13 +184,18 @@ public class RoomLobbyState : NetworkBehaviour
                 if (columns.Length < 5)
                     continue;
 
+                int playerId = -1;
+                if (columns.Length > 5)
+                    int.TryParse(columns[5], out playerId);
+
                 snapshotPlayers.Add(new PlayerLobbyData
                 {
                     Player = PlayerRef.None,
                     Name = columns[0],
                     IsReady = columns[1] == "1",
                     IsHost = columns[2] == "1",
-                    Team = ParseTeam(columns[3])
+                    Team = ParseTeam(columns[3]),
+                    PlayerId = playerId
                 });
             }
         }
@@ -188,7 +212,7 @@ public class RoomLobbyState : NetworkBehaviour
             string safeName = Sanitize(player.Name);
             string ready = player.IsReady ? "1" : "0";
             string host = player.IsHost ? "1" : "0";
-            rows.Add($"{safeName}|{ready}|{host}|{player.Team}|{matchMode}");
+            rows.Add($"{safeName}|{ready}|{host}|{player.Team}|{matchMode}|{player.PlayerId}");
         }
 
         return string.Join("\n", rows);

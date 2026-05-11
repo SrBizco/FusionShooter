@@ -105,7 +105,16 @@ public class ScoreboardUI : MonoBehaviour
 
         var runner = NetworkManager.Instance != null ? NetworkManager.Instance.runner : null;
         if (runner != null && runner.IsRunning)
+        {
+            if (runner.IsServer && GameState.Instance != null && GameState.Instance.IsSpawned)
+            {
+                GameState.Instance.NotifyHostReturningToMenu();
+                await System.Threading.Tasks.Task.Delay(300);
+            }
+
+            NetworkManager.MarkIntentionalMenuReturn();
             await runner.Shutdown();
+        }
 
         MatchSettings.SetMode(MatchMode.FreeForAll);
         MatchSettings.ClearTeams();

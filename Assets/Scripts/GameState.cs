@@ -10,11 +10,29 @@ public class GameState : NetworkBehaviour
     [Networked] public bool IsGameActive { get; private set; }
 
     private bool localEnded = false;
+    public bool IsSpawned { get; private set; }
 
     public override void Spawned()
     {
+        IsSpawned = true;
         Instance = this;
         Debug.Log($"🧬 GameState Spawned. HasStateAuthority: {HasStateAuthority}");
+    }
+
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        IsSpawned = false;
+
+        if (Instance == this)
+            Instance = null;
+    }
+
+    private void OnDestroy()
+    {
+        IsSpawned = false;
+
+        if (Instance == this)
+            Instance = null;
     }
 
     public override void FixedUpdateNetwork()
@@ -69,5 +87,22 @@ public class GameState : NetworkBehaviour
         GameTimer = TickTimer.CreateFromSeconds(Runner, durationSeconds);
         IsGameActive = true;
         Debug.Log("🕒 Timer iniciado manualmente por NetworkManager");
+    }
+
+    public void NotifyHostReturningToMenu()
+    {
+        if (!HasStateAuthority)
+            return;
+
+        RPC_ReturnClientsToMenu("Connection lost.");
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ReturnClientsToMenu(string message)
+    {
+        if (HasStateAuthority)
+            return;
+
+        NetworkManager.ReturnToMenuFromHost(message);
     }
 }
